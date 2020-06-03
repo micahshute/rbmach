@@ -1,0 +1,3 @@
+class Rbmach::Distributions
+
+end

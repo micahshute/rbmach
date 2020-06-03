@@ -4,10 +4,11 @@ RSpec.describe Rbmach::Functions do
     it "accepts any number of arrays of values nad returns centered versions of those arrays" do
       xin = [3,3,4,4,5,5,6,6,7,7,8,8]
       yin = [3,4,3,5,4,5,6,7,6,8,7,8]
-      x,y = Rbmach::Functions.center_data(xin, yin)
+      data ,_ = Rbmach::Functions.center_data(xin, yin)
+      x,y = data
       expect(x.sum / x.length.to_f).to eq(0)
       expect(y.sum / y.length.to_f).to eq(0)
-      just_x = Rbmach::Functions.center_data(xin)
+      just_x, _ = Rbmach::Functions.center_data(xin)
       expect(just_x.sum / just_x.length.to_f).to eq(0)
     end
 

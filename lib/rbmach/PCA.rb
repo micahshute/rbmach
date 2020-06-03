@@ -26,7 +26,7 @@ class Rbmach::PCA
         reduced_data = Matrix[*reduced_data] if reduced_data.is_a? Array
         dimensions = reduced_data.row_count
         eigenvectors = n_largest_eigenvectors(dimensions)
-        Matrix[*(eigenvectors * reduced_data).to_a.map.with_index do |row, i|
+        Matrix[*(eigenvectors.transpose * reduced_data).to_a.map.with_index do |row, i|
             row.map{|el| el + @means[i]}
         end]
     end

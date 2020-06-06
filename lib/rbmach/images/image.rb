@@ -17,6 +17,12 @@ class Rbmach::Image
 
     def initialize(path: nil, rows: nil, columns: nil, greyscale: true, pixels: nil)
         @path, @rows, @columns, @greyscale, @pixels = path, rows, columns, greyscale, pixels
+        if !@path
+            imgfile = File.open('img.png')
+
+        else
+
+        end
     end
 
 end

@@ -45,6 +45,7 @@ class Rbmach::PNGStrategy
             raise ArgumentError.new('Bit depth must be related to color_type as such: #{bit_depth_rules}') if !bit_depth_rules[color_type].include?(bit_depth) 
 
             wbytes = to_bytelen(4, width)
+
             hbytes = to_bytelen(4, height)
             bdbyte = [bit_depth]
             cmbyte = [compression_method]

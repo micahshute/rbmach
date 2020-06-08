@@ -1,5 +1,6 @@
 require "rbmach/version"
 require 'matrix' 
+require 'bigdecimal'
 require 'digiproc'
 require 'require_all'
 require 'pry'
@@ -15,3 +16,5 @@ module Rbmach
   class Error < StandardError; end
   # Your code goes here...
 end
+
+

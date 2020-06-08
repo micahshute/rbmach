@@ -8,14 +8,27 @@ class Rbmach::PNGStrategy
         :IEND
     ]
 
-    def initialize(pixels: , type: )
+    def initialize(pixels: nil, type: nil)
         @signature = [137, 80, 78, 71, 13, 10, 26, 10]
+        @chunks = [Chunk.IHDR]
 
+    end
+
+    def bitstream
+        all_data.map(&:chr).join''
+    end
+
+    private
+
+    def all_data 
+        @signature + @chunks.map(&:data).flatten 
     end
    
 
 
     class Chunk
+
+        @@crc_table = {}
 
         def self.IHDR(width: , height: , bit_depth: , color_type: , compression_method: 0, filter_method: 0, interlace_method: 0)
             bit_depth_rules = {
@@ -30,30 +43,70 @@ class Rbmach::PNGStrategy
             test_length(height) 
             raise ArgumentError.new('Color code types must be 0, 2, 3, 4, or 6') if ![0,2,3,4,6].include?(color_type)
             raise ArgumentError.new('Bit depth must be related to color_type as such: #{bit_depth_rules}') if !bit_depth_rules[color_type].include?(bit_depth) 
-            
+
             wbytes = to_bytelen(4, width)
+
             hbytes = to_bytelen(4, height)
             bdbyte = [bit_depth]
             cmbyte = [compression_method]
-
-
-
+            fmbyte = [filter_method]
+            ilmbyte = [interlace_method]
+            data = wbytes + hbytes + bdbyte + cmdbyte + fmbyte + ilmbyte
+            Chunk.new(type: "IHDR", data: data) 
         end
 
         def self.IDAT()
 
         end
 
-        def initialize(length: , type: nil ,data: , crc:)
+        def initialize(type: ,data:)
+            raise ArgumentError.new("Type must be a string, symbol, or an array") if !type.is_a?(String) && !type.is_a?(Symbol) && !type.is_a?(Array)
+
+            @length = [data.length]
             self.class.test_length(length)
-            @length = length
-            @type = type
+            
+            if @type.is_a?(String) || type.is_a?(Symbol)
+                @type = type.to_s.bytes
+            else
+                @type = type
+            end
+
+            @data = data
+            @crc = crc
+        end
+
+        def data
+            @length + @type + @data + @crc
         end
 
         private
 
+        def self.crc_table_computed
+            crc.length > 0
+        end
+
+        def self.make_crc_table
+            for n in 0...256
+                c = n
+                for k in 0...8
+                    if c.odd? 
+                        c = 3988292384 ^ (c >> 1)
+                    else
+                        c = c >> 1
+                    end
+                end
+                @@crc_table[n] = c
+            end
+        end 
+
         def self.test_length(num, limit: 2 * 31 - 1)
             raise ArgumentError.new("Length cannot exceed 2^31 - 1") if num > limit
+        end
+
+        # def update_crc(crc, )
+
+        def crc
+            "TODO: Make this work".bytes
         end
 
         def to_bytelen(len, byte_arr)

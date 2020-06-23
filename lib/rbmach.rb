@@ -1,9 +1,11 @@
 require "rbmach/version"
 require 'matrix' 
+require 'zlib'
 require 'bigdecimal'
 require 'digiproc'
 require 'require_all'
 require 'pry'
+
 
 require_all 'lib/rbmach'
 

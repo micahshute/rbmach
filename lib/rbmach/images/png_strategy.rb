@@ -8,14 +8,107 @@ class Rbmach::PNGStrategy
         :IEND
     ]
 
-    def initialize(pixels: nil, type: nil)
+    COLOR_TYPES = {
+        greyscale: 0,
+        rgb: 2,
+        pallet: 3,
+        greyscale_alpha: 4,
+        rgba: 6
+    }
+
+    def self.read(path: nil, data: nil)
+        raise ArgumentError.new(".read must be initialized with a path or a datastream") if (path.nil? && data.nil?) || (!path.nil? && !data.nil?)
+        raise ArgumentError.new("data must be an array of byte integers or a byte string") if data && !data.is_a?(Array) && !data.is_a?(String)
+        raise ArgumentError.new("data must be an array of byte integers or a byte string") if data && data.is_a?(Array) && !data.first.is_a?(Integer) 
+        if path
+            data = File.read(path).bytes
+        else
+            data = data.bytes if data.is_a?(String)
+        end
+        chunk_start = 8
+        chunks = []
+        loop do 
+            len_end = chunk_start + 4
+            type_end = len_end + 4
+            len = DatX.buf2int(data[chunk_start...len_end])
+            type = data[len_end...type_end]
+            chunk_end = type_end + len + 4
+            case type.pack("C*")
+            when "IHDR"
+                chunks << Chunk.readIHDR(data[chunk_start...chunk_end])
+            when "IDAT"
+                chunks << Chunk.readIDAT(data[chunk_start...chunk_end])
+            else
+                # binding.pry
+                chunks << data[chunk_start...chunk_end]
+            end
+
+            chunk_start = chunk_end
+            break if chunk_end >= data.length - 1
+
+        end
+
+        chunks
+        width = chunks.first[:width]
+        height = chunks.first[:height]
+        bit_depth = chunks.first[:bit_depth]
+        color_type = chunks.first[:color_type]
+        compression_method = chunks.first[:compression_method]
+        filter_method = chunks.first[:filter_method]
+        interlace_method = chunks.first[:interlace_method]
+        # bits_per_pixel = color_type == 2 || color_type == 6 ? (bit_depth * 3) : bit_depth
+        all_idats = chunks.filter{ |c| c.is_a?(Hash) && c[:type] == "IDAT" }
+        compressed_pixels = all_idats.reduce([]){ |mem, idat| mem + idat[:compressed_pixels] }
+        pixels_and_filter = Zlib::Inflate.inflate(compressed_pixels.pack("C*")).unpack("C*")
+        # pixel_width = color_type == 2 || color_type == 6 ? width * 3 : width
+        case color_type
+        when 0
+            pixel_width = width
+        when 2
+            pixel_width = width * 3
+        when 3
+            pixel_width = width 
+        when 4
+            pixel_width = width * 2
+        when 6
+            pixel_width = width * 4
+        else
+            raise ArgumentError.new("#{color_type} is not a valid color type. Must be 0,2,3,4, or 6")
+        end
+        pixels = pixels_and_filter.filter.with_index{ |_,i| i % (pixel_width + 1) != 0}
+        # binding.pry
+        new(pixels: pixels, type: color_type, width: width, height: height, bit_depth: bit_depth)
+
+    end
+    
+    attr_reader :pixels, :width, :height, :bit_depth
+
+    def initialize(pixels: nil, type: nil, width: , height: , bit_depth: 8)
+        @pixels, @width, @height = pixels, width, height
+        @bit_depth = bit_depth
+        @type = type.is_a?(Integer) ? type : COLOR_TYPES[type]
+        raise ArgumentError("#{type} is not a valid color type. Please use one of: #{COLOR_TYPES.keys}") if type.nil?
         @signature = [137, 80, 78, 71, 13, 10, 26, 10]
-        @chunks = [Chunk.IHDR]
+        @chunks = [
+            Chunk.IHDR(width: @width, height: @height, bit_depth: @bit_depth, color_type: @type),
+            *Chunk.IDATs(pixels, color_type: @type, bit_depth: @bit_depth, width: @width, height: @height),
+            Chunk.IEND
+        ]
 
     end
 
-    def bitstream
-        all_data.map(&:chr).join''
+    def type
+        COLOR_TYPES.each do |k,v|
+            return k if v == @type
+        end
+    end
+
+    def bytes
+        all_data.pack("C*")
+    end
+
+    def write(path: 'output')
+        File.write("./" + path + ".png", bytes)
     end
 
     private
@@ -29,6 +122,44 @@ class Rbmach::PNGStrategy
     class Chunk
 
         @@crc_table = {}
+
+        def self.readIHDR(bytes)
+            bytes = bytes.bytes if bytes.is_a?(String)
+            raise ArgumentError.new("IHDR must be 25 bytes long") if bytes.length != 25
+            crc = bytes[-4..-1]
+
+            
+            data = {}
+            data[:length] = DatX.buf2int(bytes[0...4])
+            data[:type] = DatX.buf2hex(bytes[4...8])
+            data[:width] = DatX.buf2int(bytes[8...12])
+            data[:height] = DatX.buf2int(bytes[12...16])
+            data[:bit_depth] = bytes[16]
+            data[:color_type] = bytes[17]
+            data[:compression_method] = bytes[18]
+            data[:filter_method] = bytes[19]
+            data[:interlace_method] = bytes[20]
+
+            chunk_data = bytes[8...21]
+            raise CRCError.new("CRC does not match expected") if !crc_valid?(type: data[:type].unpack("C*"), data: chunk_data, crc: crc)
+
+            data
+        end
+
+        def self.readIDAT(bytes)
+            bytes = bytes.bytes if bytes.is_a?(String)
+
+            data = {}
+            data[:length] = DatX.buf2int(bytes[0...4])
+            data[:type] = DatX.buf2hex(bytes[4...8])
+            data[:compressed_pixels] = bytes[8...(data[:length] + 8)]
+            data
+        end
+
+        def self.crc_valid?(type:, data:, crc:)
+            c = new(type: type, data: data)
+            c.bytes[-4..-1].bytes == crc
+        end
 
         def self.IHDR(width: , height: , bit_depth: , color_type: , compression_method: 0, filter_method: 0, interlace_method: 0)
             bit_depth_rules = {
@@ -44,34 +175,117 @@ class Rbmach::PNGStrategy
             raise ArgumentError.new('Color code types must be 0, 2, 3, 4, or 6') if ![0,2,3,4,6].include?(color_type)
             raise ArgumentError.new('Bit depth must be related to color_type as such: #{bit_depth_rules}') if !bit_depth_rules[color_type].include?(bit_depth) 
 
-            wbytes = to_bytelen(4, width)
 
-            hbytes = to_bytelen(4, height)
+            wbytes = to_bytelen(4, DatX.hex(width).bytes)
+            hbytes = to_bytelen(4, DatX.hex(height).bytes)
             bdbyte = [bit_depth]
+            ctbyte = [color_type]
             cmbyte = [compression_method]
             fmbyte = [filter_method]
             ilmbyte = [interlace_method]
-            data = wbytes + hbytes + bdbyte + cmdbyte + fmbyte + ilmbyte
+            data = wbytes + hbytes + bdbyte + ctbyte + cmbyte + fmbyte + ilmbyte
             Chunk.new(type: "IHDR", data: data) 
         end
 
-        def self.IDAT()
-
+        def self.PLTE(data)
+            data = data.bytes if data.is_a?(String)
+            raise ArgumentError.new("Number of bytes must be a multiple of 3") if data.length % 3 != 0
+            Chunk.new(type: "PLTE", data: data)
         end
+
+        def self.IDATs(pixels, color_type: ,bit_depth:, width: , height: , idat_size: 2 ** 20)
+
+            case color_type
+            when 0
+                pixel_width = width
+            when 2
+                pixel_width = width * 3
+            when 3
+                pixel_width = width 
+            when 4
+                pixel_width = width * 2
+            when 6
+                pixel_width = width * 4
+            else
+                raise ArgumentError.new("#{color_type} is not a valid color type. Must be 0,2,3,4, or 6")
+            end
+            expected_pixels = pixel_width * height
+            raise ArgumentError.new("pixel count (#{pixels.length}) does not match expected pixel count (#{expected_pixels})") if pixels.length != expected_pixels
+            pixel_square = Array.new(height, nil)
+            pixel_square = pixel_square.map{ |_| [nil] * pixel_width}
+            for i in 0...pixels.length
+                row = i / pixel_width
+                col = i % pixel_width
+                pixel_square[row][col] = pixels[i]
+            end
+
+            scanlines = pixel_square.map do |bit_strm|
+
+                case bit_depth
+                when 1
+                    [0] + DatX.hex(bit_strm.map{|b| b.to_s(2)}.join('').to_i(2))
+                when 2
+                    [0] + DatX.hex(bit_strm.map{|b| DatX.pad(num: b.to_s(2), len: 2)}.join('').to_i(2))
+                when 4
+                    [0] + DatX.hex(bit_strm.map{|b| DatX.pad(num: b.to_s(2), len: 4)}.join('').to_i(2))
+                when 8
+                    ([0] + bit_strm).pack("C*")
+                when 16
+                    ([0] + bit_strm).pack("S*")
+                else
+                    ArgumentError.new("bit_depth can only be 1,2,4,8, or 16 bits")
+                end
+
+            end
+
+            # zstrm = Zlib::Deflate.new(
+            #     Zlib::BEST_COMPRESSION,
+            #     Zlib::MAX_WBITS,
+            #     Zlib::MAX_MEM_LEVEL,
+            #     Zlib::RLE
+            # ).deflate(scanlines.join(''))
+            z = Zlib::Deflate.new(Zlib::BEST_COMPRESSION, Zlib::MAX_WBITS, Zlib::MAX_MEM_LEVEL, Zlib::RLE)
+            zstrm = z.deflate(scanlines.join(''), Zlib::FINISH)
+            z.close
+            idats = []
+            zstrm.bytes.each_slice(idat_size) do |dstrm|
+                idats << Chunk.new(type: "IDAT", data: dstrm)
+            end
+            
+            idats
+
+
+            # make a d2 array of rows
+            # make "scanlines" on each row, the pixel bits starting at the far left and moving to the right. 
+            # pack pixels togther, but pixels smaller than a byte never cross byte boundaries
+            # when pixels have fewer than 8 bits and the scanline width is not evenly divisible by the nubmer of px/byte, the lowe-order bits are wated.
+            # 1 filter type byte added to the beginning of each scanline
+
+            #then zlib
+
+
+        end 
+
+        def self.IEND
+            Chunk.new(type: "IEND", data: nil)
+        end
+       
+
+        attr_reader :length, :type
 
         def initialize(type: ,data:)
             raise ArgumentError.new("Type must be a string, symbol, or an array") if !type.is_a?(String) && !type.is_a?(Symbol) && !type.is_a?(Array)
-
-            @length = [data.length]
-            self.class.test_length(length)
-            
-            if @type.is_a?(String) || type.is_a?(Symbol)
+            @data = data.nil? ? [] : data
+            @length = self.class.to_bytelen(4, DatX.int2buf(@data.length))
+            self.class.test_length(@data.length)
+            # binding.pry
+            if type.is_a?(String) || type.is_a?(Symbol)
                 @type = type.to_s.bytes
             else
                 @type = type
             end
 
-            @data = data
+            
             @crc = crc
         end
 
@@ -79,10 +293,14 @@ class Rbmach::PNGStrategy
             @length + @type + @data + @crc
         end
 
+        def bytes
+            data.pack("C*")
+        end 
+
         private
 
         def self.crc_table_computed
-            crc.length > 0
+            @@crc_table.length > 0
         end
 
         def self.make_crc_table
@@ -99,24 +317,27 @@ class Rbmach::PNGStrategy
             end
         end 
 
-        def self.test_length(num, limit: 2 * 31 - 1)
+        def self.test_length(num, limit: 2 ** 31 - 1)
             raise ArgumentError.new("Length cannot exceed 2^31 - 1") if num > limit
         end
 
-        # def update_crc(crc, )
 
         def crc
-            "TODO: Make this work".bytes
+            c = ([255] * 4).pack("C4").unpack("L").first
+            buff = @type + @data
+            self.class.make_crc_table if !self.class.crc_table_computed
+            for n in 0...buff.length
+                c = @@crc_table[(c ^ buff[n]) & 255] ^ (c >> 8)
+            end
+            DatX.int2buf(c ^ DatX.buf2int([255] * 4))
         end
 
-        def to_bytelen(len, byte_arr)
+        def self.to_bytelen(len, byte_arr)
             diff = len - byte_arr.length
             if diff < 0
                 byte_arr[0...diff]
             else
-                diff.times do 
-                    byte_arr = [0] + byte_arr
-                end
+                byte_arr = ([0] * diff) + byte_arr
                 byte_arr
             end
         end

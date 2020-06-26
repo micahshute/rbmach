@@ -1,4 +1,4 @@
-class DatX
+class Byteman
 
     def self.pad(num: nil, len: , bytes: false)
         if bytes

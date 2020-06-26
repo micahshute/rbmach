@@ -30,7 +30,7 @@ class Rbmach::PNGStrategy
         loop do 
             len_end = chunk_start + 4
             type_end = len_end + 4
-            len = DatX.buf2int(data[chunk_start...len_end])
+            len = Byteman.buf2int(data[chunk_start...len_end])
             type = data[len_end...type_end]
             chunk_end = type_end + len + 4
             case type.pack("C*")
@@ -130,10 +130,10 @@ class Rbmach::PNGStrategy
 
             
             data = {}
-            data[:length] = DatX.buf2int(bytes[0...4])
-            data[:type] = DatX.buf2hex(bytes[4...8])
-            data[:width] = DatX.buf2int(bytes[8...12])
-            data[:height] = DatX.buf2int(bytes[12...16])
+            data[:length] = Byteman.buf2int(bytes[0...4])
+            data[:type] = Byteman.buf2hex(bytes[4...8])
+            data[:width] = Byteman.buf2int(bytes[8...12])
+            data[:height] = Byteman.buf2int(bytes[12...16])
             data[:bit_depth] = bytes[16]
             data[:color_type] = bytes[17]
             data[:compression_method] = bytes[18]
@@ -150,8 +150,8 @@ class Rbmach::PNGStrategy
             bytes = bytes.bytes if bytes.is_a?(String)
 
             data = {}
-            data[:length] = DatX.buf2int(bytes[0...4])
-            data[:type] = DatX.buf2hex(bytes[4...8])
+            data[:length] = Byteman.buf2int(bytes[0...4])
+            data[:type] = Byteman.buf2hex(bytes[4...8])
             data[:compressed_pixels] = bytes[8...(data[:length] + 8)]
             data
         end
@@ -176,8 +176,8 @@ class Rbmach::PNGStrategy
             raise ArgumentError.new('Bit depth must be related to color_type as such: #{bit_depth_rules}') if !bit_depth_rules[color_type].include?(bit_depth) 
 
 
-            wbytes = to_bytelen(4, DatX.hex(width).bytes)
-            hbytes = to_bytelen(4, DatX.hex(height).bytes)
+            wbytes = to_bytelen(4, Byteman.hex(width).bytes)
+            hbytes = to_bytelen(4, Byteman.hex(height).bytes)
             bdbyte = [bit_depth]
             ctbyte = [color_type]
             cmbyte = [compression_method]
@@ -223,11 +223,11 @@ class Rbmach::PNGStrategy
 
                 case bit_depth
                 when 1
-                    [0] + DatX.hex(bit_strm.map{|b| b.to_s(2)}.join('').to_i(2))
+                    [0] + Byteman.hex(bit_strm.map{|b| b.to_s(2)}.join('').to_i(2))
                 when 2
-                    [0] + DatX.hex(bit_strm.map{|b| DatX.pad(num: b.to_s(2), len: 2)}.join('').to_i(2))
+                    [0] + Byteman.hex(bit_strm.map{|b| Byteman.pad(num: b.to_s(2), len: 2)}.join('').to_i(2))
                 when 4
-                    [0] + DatX.hex(bit_strm.map{|b| DatX.pad(num: b.to_s(2), len: 4)}.join('').to_i(2))
+                    [0] + Byteman.hex(bit_strm.map{|b| Byteman.pad(num: b.to_s(2), len: 4)}.join('').to_i(2))
                 when 8
                     ([0] + bit_strm).pack("C*")
                 when 16
@@ -276,7 +276,7 @@ class Rbmach::PNGStrategy
         def initialize(type: ,data:)
             raise ArgumentError.new("Type must be a string, symbol, or an array") if !type.is_a?(String) && !type.is_a?(Symbol) && !type.is_a?(Array)
             @data = data.nil? ? [] : data
-            @length = self.class.to_bytelen(4, DatX.int2buf(@data.length))
+            @length = self.class.to_bytelen(4, Byteman.int2buf(@data.length))
             self.class.test_length(@data.length)
             # binding.pry
             if type.is_a?(String) || type.is_a?(Symbol)
@@ -329,7 +329,7 @@ class Rbmach::PNGStrategy
             for n in 0...buff.length
                 c = @@crc_table[(c ^ buff[n]) & 255] ^ (c >> 8)
             end
-            DatX.int2buf(c ^ DatX.buf2int([255] * 4))
+            Byteman.int2buf(c ^ Byteman.buf2int([255] * 4))
         end
 
         def self.to_bytelen(len, byte_arr)

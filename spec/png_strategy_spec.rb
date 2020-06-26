@@ -223,7 +223,7 @@ RSpec.describe Rbmach::PNGStrategy do
     
       it "correctly reads the IHDR chunk as a buffer or bytestring and returns a hash of metadata" do 
         ihdr = [0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 7, 110, 0, 0, 6, 192, 8, 6, 0, 0, 0, 175, 166, 118, 220]
-        ihdrbytes = DatX.buf2hex(ihdr)
+        ihdrbytes = Byteman.buf2hex(ihdr)
         buf_data = Rbmach::PNGStrategy::Chunk.readIHDR(ihdr)
         bytes_data = Rbmach::PNGStrategy::Chunk.readIHDR(ihdrbytes)
 

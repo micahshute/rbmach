@@ -13,6 +13,4 @@ gem "require_all", "~> 3.0"
 
 gem "pry", "~> 0.13.1"
 
-gem "mini_magick", "~> 4.10"
-
-
+gem "byteman", "~> 0.1.0"

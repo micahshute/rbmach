@@ -1,5 +1,10 @@
 RSpec.describe Rbmach::PNGStrategy do 
 
+
+  it "can create a valid pallet PNG img" do 
+    
+  end
+
   it "creates a valid rgb PNG img" do
     pixels = []
     1000.times do |i|

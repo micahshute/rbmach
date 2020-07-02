@@ -22,7 +22,7 @@ class Rbmach::PCA
 
     end
 
-    def restore(reduced_data:)
+    def restore(reduced_data)
         reduced_data = Matrix[*reduced_data] if reduced_data.is_a? Array
         dimensions = reduced_data.row_count
         eigenvectors = n_largest_eigenvectors(dimensions)

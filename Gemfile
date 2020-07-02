@@ -14,3 +14,5 @@ gem "require_all", "~> 3.0"
 gem "pry", "~> 0.13.1"
 
 gem "byteman", "~> 0.1.0"
+
+gem "rbimg", "~> 0.1.1"

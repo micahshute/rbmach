@@ -3,6 +3,7 @@ require 'matrix'
 require 'zlib'
 require 'bigdecimal'
 require 'digiproc'
+require 'rbimg'
 require 'require_all'
 require 'pry'
 

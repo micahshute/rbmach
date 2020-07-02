@@ -35,7 +35,7 @@ RSpec.describe Rbmach::PCA do
     err100 = (pixel_matrix - rest100).sum.abs
     err50 = (pixel_matrix - rest50).sum.abs
     err10 = (pixel_matrix - rest10).sum.abs
-    err5 = (pixel_maatrix - rest5).sum.abs
+    err5 = (pixel_matrix - rest5).sum.abs
     err1 = (pixel_matrix - rest1).sum.abs
     puts err500
     puts err300

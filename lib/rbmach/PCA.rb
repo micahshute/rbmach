@@ -1,5 +1,18 @@
 class Rbmach::PCA
 
+    def self.restore(data, means: nil)
+        reduced_data = Matrix[*reduced_data] if reduced_data.is_a? Array
+        dimensions = reduced_data.row_count
+        eigenvectors = n_largest_eigenvectors(dimensions)
+        restored = eigenvectors.transpose * reduced_data
+        if means.nil?
+            means = Array.new(restored.column_count, 0)
+        end
+        Matrix[*restored.to_a.map.with_index do |row, i|
+            row.map{|el| el + means[i]}
+        end]
+    end
+
     attr_reader :dimensions, :data, :cov, :v, :d
 
     #data :: nxm array (or matrix) n = number of features (dimensions), m = number of observations

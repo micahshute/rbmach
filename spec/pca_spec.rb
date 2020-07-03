@@ -7,13 +7,16 @@ RSpec.describe Rbmach::PCA do
     train_bytes = train.bytes
     all_images = []
     curr_byte = 16
-    100.times do |pic|
+    10.times do |pic|
       all_images << train_bytes[curr_byte...(curr_byte + 784)]
       curr_byte = curr_byte + 784 + 16
     end
     ipm = Matrix[*all_images]
     pixel_matrix = ipm.transpose
     pca = Rbmach::PCA.new(pixel_matrix)
+    binding.pry
+    puts pca.cov.row_size
+    puts pca.cov.column_size
     red500 = pca.reduce(500)
     red300 = pca.reduce(300)
     red100 = pca.reduce(100)
@@ -21,8 +24,8 @@ RSpec.describe Rbmach::PCA do
     red10 = pca.reduce(10)
     red5 = pca.reduce(5)
     red2 = pca.reduce(2)
-    puts red500.row_size
-    puts red500.column_size
+    puts red2.row_size
+    puts red2.column_size
     rest500 = pca.restore(red500)
     rest300 = pca.restore(red300)
     rest100 = pca.restore(red100)
@@ -30,13 +33,15 @@ RSpec.describe Rbmach::PCA do
     rest10 = pca.restore(red10)
     rest5 = pca.restore(red5)
     rest2 = pca.restore(red2)
+    # puts rest5.to_s
+    puts rest2.to_s
     err500 = (pixel_matrix - rest500).sum.abs
     err300 = (pixel_matrix - rest300).sum.abs
     err100 = (pixel_matrix - rest100).sum.abs
     err50 = (pixel_matrix - rest50).sum.abs
     err10 = (pixel_matrix - rest10).sum.abs
     err5 = (pixel_matrix - rest5).sum.abs
-    err1 = (pixel_matrix - rest1).sum.abs
+    err1 = (pixel_matrix - rest2).sum.abs
     puts err500
     puts err300
     puts err100
